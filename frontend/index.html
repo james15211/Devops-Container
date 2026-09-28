@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Container CRUD</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --blue: #2496ed;
+            --blue-dark: #1d63ed;
+            --navy: #0b1d33;
+            --navy-2: #102a4c;
+            --bg: #f5f8fc;
+            --card: #ffffff;
+            --text: #0f172a;
+            --muted: #64748b;
+            --border: #e2e8f0;
+            --green: #16a34a;
+            --red: #dc2626;
+            --radius: 14px;
+            --shadow: 0 10px 30px -12px rgba(15, 23, 42, .18);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+        a { color: inherit; text-decoration: none; }
+        code, .mono { font-family: 'JetBrains Mono', monospace; }
+        .container { max-width: 1140px; margin: 0 auto; padding: 0 20px; }
+
+        /* Nav */
+        nav { position: sticky; top: 0; z-index: 50; background: rgba(11, 29, 51, .85); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,.08); }
+        nav .container { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+        .logo { display: flex; align-items: center; gap: 10px; color: #fff; font-weight: 700; font-size: 18px; }
+        .logo svg { width: 32px; height: 32px; }
+        .nav-links { display: flex; gap: 28px; }
+        .nav-links a { color: #cbd5e1; font-size: 14px; font-weight: 500; transition: color .2s; }
+        .nav-links a:hover { color: #fff; }
+
+        /* Buttons */
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 22px; border-radius: 10px; font: 600 14px 'Inter', sans-serif; border: none; cursor: pointer; transition: transform .15s, background .2s, box-shadow .2s; }
+        .btn:hover { transform: translateY(-1px); }
+        .btn-primary { background: var(--blue); color: #fff; box-shadow: 0 8px 20px -8px var(--blue); }
+        .btn-primary:hover { background: var(--blue-dark); }
+        .btn-ghost { background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.18); }
+        .btn-light { background: #f1f5f9; color: var(--text); }
+        .btn-sm { padding: 6px 12px; font-size: 13px; border-radius: 8px; }
+        .btn-edit { background: #e0f0fd; color: var(--blue-dark); }
+        .btn-delete { background: #fee2e2; color: var(--red); }
+
+        /* Hero */
+        .hero { background: radial-gradient(1000px 500px at 80% -10%, rgba(36,150,237,.35), transparent), linear-gradient(160deg, var(--navy), var(--navy-2)); color: #fff; padding: 90px 0 110px; overflow: hidden; }
+        .hero .container { display: grid; grid-template-columns: 1.1fr .9fr; gap: 50px; align-items: center; }
+        .badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: rgba(36,150,237,.15); border: 1px solid rgba(36,150,237,.4); color: #7cc4fa; font-size: 13px; font-weight: 500; margin-bottom: 22px; }
+        .hero h1 { font-size: clamp(34px, 5vw, 54px); line-height: 1.1; font-weight: 800; letter-spacing: -1.5px; margin-bottom: 20px; }
+        .hero h1 span { background: linear-gradient(90deg, #4fb3ff, var(--blue)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .hero p { color: #b6c3d6; font-size: 18px; max-width: 520px; margin-bottom: 32px; }
+        .hero-actions { display: flex; gap: 14px; flex-wrap: wrap; }
+
+        .terminal { background: #0a1628; border: 1px solid rgba(255,255,255,.1); border-radius: var(--radius); box-shadow: 0 30px 60px -20px rgba(0,0,0,.6); overflow: hidden; }
+        .terminal-bar { display: flex; gap: 7px; padding: 12px 16px; background: rgba(255,255,255,.04); border-bottom: 1px solid rgba(255,255,255,.06); }
+        .terminal-bar i { width: 11px; height: 11px; border-radius: 50%; background: #ff5f57; }
+        .terminal-bar i:nth-child(2) { background: #febc2e; }
+        .terminal-bar i:nth-child(3) { background: #28c840; }
+        .terminal pre { padding: 20px; font: 13px/1.8 'JetBrains Mono', monospace; color: #cbd5e1; white-space: pre-wrap; }
+        .t-cmd { color: #7cc4fa; } .t-ok { color: #4ade80; } .t-dim { color: #64748b; }
+
+        /* Sections */
+        section { padding: 80px 0; }
+        .section-head { text-align: center; max-width: 620px; margin: 0 auto 48px; }
+        .eyebrow { color: var(--blue); font-weight: 700; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; }
+        .section-head h2 { font-size: clamp(26px, 3.5vw, 36px); letter-spacing: -.8px; margin: 8px 0 12px; }
+        .section-head p { color: var(--muted); }
+
+        /* Status strip */
+        .stats { margin-top: -56px; position: relative; z-index: 2; padding: 0; }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        .stat { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; box-shadow: var(--shadow); }
+        .stat-label { color: var(--muted); font-size: 13px; font-weight: 500; }
+        .stat-value { font-size: 24px; font-weight: 700; margin-top: 4px; display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; background: #cbd5e1; flex-shrink: 0; }
+        .dot.up { background: var(--green); box-shadow: 0 0 0 4px rgba(22,163,74,.15); }
+        .dot.down { background: var(--red); box-shadow: 0 0 0 4px rgba(220,38,38,.15); }
+
+        /* Architecture */
+        .arch { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 12px; }
+        .box { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px 24px; box-shadow: var(--shadow); transition: transform .2s, border-color .2s; }
+        .box:hover { transform: translateY(-4px); border-color: var(--blue); }
+        .box-icon { width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; font-size: 24px; margin-bottom: 16px; background: #e0f0fd; }
+        .box h3 { font-size: 18px; margin-bottom: 4px; }
+        .box .tag { display: inline-block; font: 500 12px 'JetBrains Mono', monospace; background: #f1f5f9; color: var(--muted); padding: 3px 8px; border-radius: 6px; margin: 6px 6px 10px 0; }
+        .box p { color: var(--muted); font-size: 14px; }
+        .arrow { color: var(--blue); font-size: 26px; text-align: center; }
+
+        /* CRUD app */
+        .app { display: grid; grid-template-columns: 340px 1fr; gap: 24px; align-items: start; }
+        .panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+        .panel-head { padding: 20px 22px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .panel-head h3 { font-size: 16px; }
+        .panel-body { padding: 22px; }
+        label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+        input, textarea { width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px; font: 14px 'Inter', sans-serif; background: #fbfdff; transition: border-color .2s, box-shadow .2s; }
+        input:focus, textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 4px rgba(36,150,237,.15); }
+        textarea { resize: vertical; min-height: 90px; }
+        .field { margin-bottom: 16px; }
+        .form-actions { display: flex; gap: 10px; }
+        .form-actions .btn { flex: 1; }
+        .search { max-width: 240px; padding: 8px 12px; }
+
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); padding: 12px 22px; background: #f8fafc; border-bottom: 1px solid var(--border); }
+        td { padding: 14px 22px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: top; }
+        tr:last-child td { border-bottom: none; }
+        tbody tr { transition: background .15s; }
+        tbody tr:hover { background: #f8fbff; }
+        td.id { color: var(--muted); font-family: 'JetBrains Mono', monospace; width: 60px; }
+        td .name { font-weight: 600; }
+        td .desc { color: var(--muted); font-size: 13px; margin-top: 2px; }
+        td.actions { white-space: nowrap; text-align: right; width: 1%; }
+        td.actions .btn + .btn { margin-left: 6px; }
+        tr.editing { background: #eef7ff !important; }
+        .empty { text-align: center; padding: 48px 20px; color: var(--muted); }
+        .empty div { font-size: 38px; margin-bottom: 6px; }
+        .table-wrap { overflow-x: auto; }
+
+        /* API reference */
+        .endpoints { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+        .endpoint { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; }
+        .method { font: 700 12px 'JetBrains Mono', monospace; padding: 3px 8px; border-radius: 6px; width: fit-content; }
+        .GET { background: #dcfce7; color: #15803d; } .POST { background: #e0f0fd; color: var(--blue-dark); }
+        .PUT { background: #fef3c7; color: #b45309; } .DELETE { background: #fee2e2; color: var(--red); }
+        .endpoint code { font-size: 14px; font-weight: 500; }
+        .endpoint span { color: var(--muted); font-size: 13px; }
+
+        footer { background: var(--navy); color: #94a3b8; padding: 30px 0; font-size: 14px; }
+        footer .container { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 24px; right: 24px; background: var(--navy); color: #fff; padding: 12px 18px; border-radius: 10px; font-size: 14px; box-shadow: var(--shadow); transform: translateY(120px); opacity: 0; transition: all .3s; z-index: 100; }
+        .toast.show { transform: none; opacity: 1; }
+        .toast.error { background: var(--red); }
+
+        @media (max-width: 900px) {
+            .hero .container, .app { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .arch { grid-template-columns: 1fr; }
+            .arrow { transform: rotate(90deg); }
+            .nav-links { display: none; }
+        }
+        @media (max-width: 520px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .hero { padding: 60px 0 90px; }
+            th, td { padding: 12px 14px; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="container">
+            <a href="#" class="logo">
+                <svg viewBox="0 0 24 24" fill="#2496ed" aria-hidden="true"><path d="M13.98 11.08h2.12a.19.19 0 0 0 .19-.19V9.01a.19.19 0 0 0-.19-.19h-2.12a.19.19 0 0 0-.18.19v1.88c0 .1.08.19.18.19m-2.95-5.43h2.12a.19.19 0 0 0 .18-.19V3.57a.19.19 0 0 0-.18-.18h-2.12a.19.19 0 0 0-.19.18v1.89c0 .1.09.19.19.19m0 2.71h2.12a.19.19 0 0 0 .18-.18V6.29a.19.19 0 0 0-.18-.18h-2.12a.19.19 0 0 0-.19.18v1.89c0 .1.09.18.19.18m-2.93 0h2.12a.19.19 0 0 0 .18-.18V6.29a.18.18 0 0 0-.18-.18H8.1a.18.18 0 0 0-.18.18v1.89c0 .1.08.18.18.18m-2.96 0h2.11a.19.19 0 0 0 .19-.18V6.29a.18.18 0 0 0-.19-.18H5.14a.19.19 0 0 0-.19.18v1.89c0 .1.08.18.19.18m5.89 2.72h2.12a.19.19 0 0 0 .18-.19V9.01a.19.19 0 0 0-.18-.19h-2.12a.18.18 0 0 0-.19.19v1.88c0 .1.09.19.19.19m-2.93 0h2.12a.18.18 0 0 0 .18-.19V9.01a.18.18 0 0 0-.18-.19H8.1a.18.18 0 0 0-.18.19v1.88c0 .1.08.19.18.19m-2.96 0h2.11a.18.18 0 0 0 .19-.19V9.01a.18.18 0 0 0-.18-.19H5.14a.19.19 0 0 0-.19.19v1.88c0 .1.08.19.19.19m-2.92 0h2.12a.18.18 0 0 0 .18-.19V9.01a.18.18 0 0 0-.18-.19H2.22a.18.18 0 0 0-.18.19v1.88c0 .1.08.19.18.19m21.54-1.19c-.06-.05-.67-.51-1.95-.51-.34 0-.68.03-1.01.09a3.77 3.77 0 0 0-1.72-2.57l-.34-.2-.23.33a4.6 4.6 0 0 0-.6 1.43c-.23.97-.09 1.88.4 2.66a4.7 4.7 0 0 1-1.75.42H.75a.75.75 0 0 0-.75.75 11.35 11.35 0 0 0 .69 4.06 6.02 6.02 0 0 0 2.38 3.1c1.17.72 3.07 1.13 5.22 1.13.97 0 1.94-.09 2.9-.26a12.25 12.25 0 0 0 3.82-1.39 10.5 10.5 0 0 0 2.6-2.13c1.25-1.42 2-3 2.55-4.4h.22c1.37 0 2.22-.55 2.68-1.01.31-.29.55-.65.71-1.05l.1-.29Z"/></svg>
+                DockerCRUD
+            </a>
+            <div class="nav-links">
+                <a href="#architecture">Architecture</a>
+                <a href="#app">Manage Items</a>
+                <a href="#api">API</a>
+            </div>
+            <a href="#app" class="btn btn-primary btn-sm">Launch App</a>
+        </div>
+    </nav>
+
+    <header class="hero">
+        <div class="container">
+            <div>
+                <div class="badge">🐳 Multi-container app · Docker Compose</div>
+                <h1>Ship a full-stack CRUD app in <span>three containers</span>.</h1>
+                <p>An Nginx frontend, a Node.js + Express API and a PostgreSQL database — each isolated in its own container and wired together on a private Docker network.</p>
+                <div class="hero-actions">
+                    <a href="#app" class="btn btn-primary">Start managing items →</a>
+                    <a href="#architecture" class="btn btn-ghost">See how it works</a>
+                </div>
+            </div>
+            <div class="terminal">
+                <div class="terminal-bar"><i></i><i></i><i></i></div>
+<pre><span class="t-cmd">$ docker compose up -d --build</span>
+<span class="t-dim">[+] Running 3/3</span>
+ <span class="t-ok">✔</span> Container database  <span class="t-ok">Started</span>
+ <span class="t-ok">✔</span> Container backend   <span class="t-ok">Started</span>
+ <span class="t-ok">✔</span> Container frontend  <span class="t-ok">Started</span>
+
+<span class="t-cmd">$ curl localhost:8080/health</span>
+<span id="termHealth" class="t-dim">checking...</span></pre>
+            </div>
+        </div>
+    </header>
+
+    <section class="stats">
+        <div class="container stats-grid">
+            <div class="stat"><div class="stat-label">Backend API</div><div class="stat-value"><span class="dot" id="dotBackend"></span><span id="stBackend">—</span></div></div>
+            <div class="stat"><div class="stat-label">PostgreSQL</div><div class="stat-value"><span class="dot" id="dotDb"></span><span id="stDb">—</span></div></div>
+            <div class="stat"><div class="stat-label">Items stored</div><div class="stat-value" id="stItems">—</div></div>
+            <div class="stat"><div class="stat-label">Served by container</div><div class="stat-value mono" style="font-size:17px" id="stHost">—</div></div>
+        </div>
+    </section>
+
+    <section id="architecture">
+        <div class="container">
+            <div class="section-head">
+                <div class="eyebrow">Architecture</div>
+                <h2>One network, three services</h2>
+                <p>Every request flows from the browser through Nginx to the API, which reads and writes a persistent PostgreSQL volume.</p>
+            </div>
+            <div class="arch">
+                <div class="box">
+                    <div class="box-icon">🌐</div>
+                    <h3>Frontend</h3>
+                    <span class="tag">nginx:alpine</span><span class="tag">:8080</span>
+                    <p>Serves this page and proxies <code>/items</code> requests to the backend container.</p>
+                </div>
+                <div class="arrow">→</div>
+                <div class="box">
+                    <div class="box-icon">⚙️</div>
+                    <h3>Backend</h3>
+                    <span class="tag">node:18-alpine</span><span class="tag">:3000</span>
+                    <p>Express REST API exposing create, read, update and delete endpoints.</p>
+                </div>
+                <div class="arrow">→</div>
+                <div class="box">
+                    <div class="box-icon">🗄️</div>
+                    <h3>Database</h3>
+                    <span class="tag">postgres:15</span><span class="tag">:5432</span>
+                    <p>Stores items on the <code>my_db_data</code> volume so data survives restarts.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="app" style="background:#fff; border-top:1px solid var(--border); border-bottom:1px solid var(--border);">
+        <div class="container">
+            <div class="section-head">
+                <div class="eyebrow">Live demo</div>
+                <h2>Manage your items</h2>
+                <p>Create, edit and delete records — every change is written straight to PostgreSQL.</p>
+            </div>
+            <div class="app">
+                <div class="panel">
+                    <div class="panel-head"><h3 id="formTitle">Add a new item</h3></div>
+                    <form class="panel-body" id="itemForm">
+                        <div class="field">
+                            <label for="itemName">Name</label>
+                            <input type="text" id="itemName" placeholder="e.g. Deploy to staging" maxlength="255" required>
+                        </div>
+                        <div class="field">
+                            <label for="itemDesc">Description <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+                            <textarea id="itemDesc" placeholder="Add a few details..."></textarea>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-light" id="cancelBtn" hidden>Cancel</button>
+                            <button type="submit" class="btn btn-primary" id="submitBtn">Add Item</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-head">
+                        <h3>All items <span id="itemCount" style="color:var(--muted);font-weight:500"></span></h3>
+                        <input type="search" class="search" id="search" placeholder="Search items...">
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>ID</th><th>Item</th><th></th></tr></thead>
+                            <tbody id="itemList"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="api">
+        <div class="container">
+            <div class="section-head">
+                <div class="eyebrow">REST API</div>
+                <h2>Endpoints</h2>
+                <p>The backend container exposes a small JSON API you can call from anywhere.</p>
+            </div>
+            <div class="endpoints">
+                <div class="endpoint"><span class="method GET">GET</span><code>/items</code><span>List all items</span></div>
+                <div class="endpoint"><span class="method GET">GET</span><code>/items/:id</code><span>Get a single item</span></div>
+                <div class="endpoint"><span class="method POST">POST</span><code>/items</code><span>Create an item</span></div>
+                <div class="endpoint"><span class="method PUT">PUT</span><code>/items/:id</code><span>Update an item</span></div>
+                <div class="endpoint"><span class="method DELETE">DELETE</span><code>/items/:id</code><span>Delete an item</span></div>
+                <div class="endpoint"><span class="method GET">GET</span><code>/health</code><span>Container &amp; database status</span></div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <span>🐳 DockerCRUD — Nginx · Node.js · PostgreSQL</span>
+            <span>DevOps multi-container project</span>
+        </div>
+    </footer>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // Requests go through the frontend's Nginx proxy (same origin)
+        const API_URL = '/items';
+        const HEALTH_URL = '/health';
+
+        let items = [];
+        let editingId = null;
+
+        const $ = id => document.getElementById(id);
+        const form = $('itemForm'), nameInput = $('itemName'), descInput = $('itemDesc');
+
+        function escapeHtml(str) {
+            return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        function toast(msg, isError = false) {
+            const t = $('toast');
+            t.textContent = msg;
+            t.className = 'toast show' + (isError ? ' error' : '');
+            clearTimeout(t._timer);
+            t._timer = setTimeout(() => t.className = 'toast', 2600);
+        }
+
+        async function request(url, options = {}) {
+            const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...options });
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.error || `Request failed (${res.status})`);
+            }
+            return res.status === 204 ? null : res.json();
+        }
+
+        function render() {
+            const q = $('search').value.trim().toLowerCase();
+            const visible = items.filter(i => (i.name + ' ' + (i.description || '')).toLowerCase().includes(q));
+            $('itemCount').textContent = `(${items.length})`;
+            $('stItems').textContent = items.length;
+
+            if (!visible.length) {
+                $('itemList').innerHTML = `<tr><td colspan="3" class="empty"><div>📦</div>${items.length ? 'No items match your search.' : 'No items yet — add your first one!'}</td></tr>`;
+                return;
+            }
+            $('itemList').innerHTML = visible.map(item => `
+                <tr class="${item.id === editingId ? 'editing' : ''}">
+                    <td class="id">#${item.id}</td>
+                    <td>
+                        <div class="name">${escapeHtml(item.name)}</div>
+                        ${item.description ? `<div class="desc">${escapeHtml(item.description)}</div>` : ''}
+                    </td>
+                    <td class="actions">
+                        <button class="btn btn-sm btn-edit" onclick="startEdit(${item.id})">Edit</button>
+                        <button class="btn btn-sm btn-delete" onclick="deleteItem(${item.id})">Delete</button>
+                    </td>
+                </tr>`).join('');
+        }
+
+        async function fetchItems() {
+            try {
+                items = await request(API_URL);
+                render();
+            } catch (err) {
+                $('itemList').innerHTML = `<tr><td colspan="3" class="empty"><div>⚠️</div>Could not reach the backend: ${escapeHtml(err.message)}</td></tr>`;
+            }
+        }
+
+        async function fetchHealth() {
+            let h = null;
+            try {
+                const res = await fetch(HEALTH_URL);
+                h = await res.json();
+            } catch (_) { /* backend unreachable */ }
+
+            const backendUp = !!h, dbUp = h && h.database === 'up';
+            $('dotBackend').className = 'dot ' + (backendUp ? 'up' : 'down');
+            $('stBackend').textContent = backendUp ? 'Online' : 'Offline';
+            $('dotDb').className = 'dot ' + (dbUp ? 'up' : 'down');
+            $('stDb').textContent = dbUp ? 'Connected' : 'Down';
+            $('stHost').textContent = h ? h.container : '—';
+            $('termHealth').innerHTML = h
+                ? `<span class="t-ok">{ "backend": "up", "database": "${escapeHtml(h.database)}", "items": ${h.items ?? 'null'} }</span>`
+                : '<span style="color:#f87171">curl: (7) Failed to connect to backend</span>';
+        }
+
+        function resetForm() {
+            editingId = null;
+            form.reset();
+            $('formTitle').textContent = 'Add a new item';
+            $('submitBtn').textContent = 'Add Item';
+            $('cancelBtn').hidden = true;
+            render();
+        }
+
+        function startEdit(id) {
+            const item = items.find(i => i.id === id);
+            if (!item) return;
+            editingId = id;
+            nameInput.value = item.name;
+            descInput.value = item.description || '';
+            $('formTitle').textContent = `Edit item #${id}`;
+            $('submitBtn').textContent = 'Save Changes';
+            $('cancelBtn').hidden = false;
+            render();
+            nameInput.focus();
+            if (window.innerWidth < 900) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        async function deleteItem(id) {
+            const item = items.find(i => i.id === id);
+            if (!confirm(`Delete "${item ? item.name : '#' + id}"?`)) return;
+            try {
+                await request(`${API_URL}/${id}`, { method: 'DELETE' });
+                if (editingId === id) resetForm();
+                toast('Item deleted');
+                await fetchItems();
+                fetchHealth();
+            } catch (err) { toast(err.message, true); }
+        }
+
+        form.addEventListener('submit', async e => {
+            e.preventDefault();
+            const payload = { name: nameInput.value.trim(), description: descInput.value.trim() };
+            if (!payload.name) return nameInput.focus();
+            try {
+                if (editingId) {
+                    await request(`${API_URL}/${editingId}`, { method: 'PUT', body: JSON.stringify(payload) });
+                    toast('Item updated');
+                } else {
+                    await request(API_URL, { method: 'POST', body: JSON.stringify(payload) });
+                    toast('Item added');
+                }
+                resetForm();
+                await fetchItems();
+                fetchHealth();
+            } catch (err) { toast(err.message, true); }
+        });
+
+        $('cancelBtn').addEventListener('click', resetForm);
+        $('search').addEventListener('input', render);
+
+        fetchItems();
+        fetchHealth();
+        setInterval(fetchHealth, 15000);
+    </script>
+</body>
+</html>

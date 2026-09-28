@@ -1,0 +1,50 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Node.js, Nginx, PostgreSQL, and Supervisor
+RUN apt-get update && apt-get install -y \
+    curl \
+    nginx \
+    postgresql \
+    postgresql-contrib \
+    supervisor \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy backend and install dependencies
+COPY backend/ ./backend/
+RUN cd backend && npm install
+
+# Copy frontend to Nginx web root
+COPY frontend/ /var/www/html/
+RUN echo "server { listen 80; root /var/www/html; index index.html; }" > /etc/nginx/sites-available/default
+
+# Initialize PostgreSQL database cluster and create the user/database
+USER postgres
+RUN pg_createcluster 14 main && \
+    /usr/lib/postgresql/14/bin/pg_ctlcluster 14 main start && \
+    psql --command "CREATE USER admin WITH SUPERUSER PASSWORD 'password123';" && \
+    createdb -O admin crud_db && \
+    /usr/lib/postgresql/14/bin/pg_ctlcluster 14 main stop
+
+USER root
+
+# Configure Supervisor to run PostgreSQL, Node.js backend, and Nginx simultaneously
+RUN echo '[supervisord]' > /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'nodaemon=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '[program:postgres]' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'command=/usr/lib/postgresql/14/bin/postgres -D /var/lib/postgresql/14/main -c config_file=/etc/postgresql/14/main/postgresql.conf' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'user=postgres' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '[program:backend]' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'command=node /app/backend/server.js' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '[program:nginx]' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'command=nginx -g "daemon off;"' >> /etc/supervisor/conf.d/supervisord.conf
+
+EXPOSE 80 3000 5432
+
+CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

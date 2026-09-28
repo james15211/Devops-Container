@@ -1,0 +1,11 @@
+node_modules/
+npm-debug.log*
+.env
+
+# Archive of the screenshots folder
+*.zip
+
+# Empty files accidentally created by shell redirects
+backend/Running
+backend/Removed
+backend/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]

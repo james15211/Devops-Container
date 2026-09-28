@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  database:
+    image: postgres:15
+    container_name: database
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: crud_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - my_db_data:/var/lib/postgresql/data
+    networks:
+      - my_custom_net
+
+  backend:
+    build: ./backend
+    image: clean-backend
+    container_name: backend
+    restart: always
+    environment:
+      - DATABASE_URL=postgres://admin:password123@database:5432/crud_db
+    ports:
+      - "3000:3000"
+    depends_on:
+      - database
+    networks:
+      - my_custom_net
+
+  frontend:
+    build: ./frontend
+    image: clean-frontend
+    container_name: frontend
+    restart: always
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - my_custom_net
+
+volumes:
+  my_db_data:
+    external: true  # Uses your already existing persistent volume!
+
+networks:
+  my_custom_net:
+    external: true  # Uses your already existing custom network!
